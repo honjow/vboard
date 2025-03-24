@@ -320,7 +320,24 @@ class VirtualKeyboard(Gtk.Window):
                 self.original_labels[key_event] = key_label
 
     def on_button_click(self, widget, key_event):
-        # If the key event is one of the modifiers, update its state and return.
+        # Handle CapsLock key
+        if key_event == uinput.KEY_CAPSLOCK:
+            # Send CapsLock key press event
+            self.device.emit(key_event, 1)  # Press
+            time.sleep(0.05)
+            self.device.emit(key_event, 0)  # Release
+            
+            # Update UI state
+            if widget.get_relief() == Gtk.ReliefStyle.NORMAL:
+                widget.set_relief(Gtk.ReliefStyle.NONE)
+                widget.get_style_context().remove_class("active-modifier")
+            else:
+                widget.set_relief(Gtk.ReliefStyle.NORMAL)
+                widget.get_style_context().add_class("active-modifier")
+            
+            return
+            
+        # If this is a modifier key, update its state and return
         if key_event in self.modifiers:
             self.modifiers[key_event] = not self.modifiers[key_event]
             if self.modifiers[key_event]:
@@ -330,7 +347,7 @@ class VirtualKeyboard(Gtk.Window):
                 widget.set_relief(Gtk.ReliefStyle.NONE)
                 widget.get_style_context().remove_class("active-modifier")
             
-            # Update key labels when Shift is pressed or released
+            # Update key labels when Shift state changes
             if key_event == uinput.KEY_LEFTSHIFT or key_event == uinput.KEY_RIGHTSHIFT:
                 self.update_key_labels()
             
@@ -372,12 +389,18 @@ class VirtualKeyboard(Gtk.Window):
                 # Skip modifier keys and keys that don't have shift variants
                 if key_code in self.modifiers or original_label not in self.shift_map:
                     continue
-                    
-                if shift_active:
-                    # Show shifted character
+                
+                # For letters, consider both Shift and CapsLock
+                if original_label.isalpha() and len(original_label) == 1:
+                    # If Shift and CapsLock have different states, they cancel each other out
+                    if shift_active:
+                        button.set_label(self.shift_map[original_label])
+                    else:
+                        button.set_label(original_label)
+                # For non-letters (symbols, numbers), only consider Shift
+                elif shift_active:
                     button.set_label(self.shift_map[original_label])
                 else:
-                    # Show original character
                     button.set_label(original_label)
 
 
