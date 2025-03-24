@@ -61,6 +61,7 @@ class VirtualKeyboard(Gtk.Window):
             uinput.KEY_LEFTMETA: False,
             uinput.KEY_RIGHTMETA: False
         }
+        self.modifier_buttons = {}  # Dictionary to store mapping between modifier keys and buttons
         self.colors = [
             ("Black", "0,0,0"),
             ("Red", "255,0,0"),
@@ -249,10 +250,15 @@ class VirtualKeyboard(Gtk.Window):
         #grid button {{
             min-width: 10px;
             padding: 1px;
+            background-color: transparent;
         }}
 
-        """
+        button.active-modifier {{
+            background-color: rgba(100, 100, 255, 0.5);
+            border: 1px solid rgb(173, 216, 230);
+        }}
 
+       """
         try:
             provider.load_from_data(css.encode("utf-8"))
         except GLib.GError as e:
@@ -271,6 +277,8 @@ class VirtualKeyboard(Gtk.Window):
                     button = Gtk.Button(label=key_label[:-2])
                 else:
                     button = Gtk.Button(label=key_label)
+                # Ensure all buttons start with NONE relief style
+                button.set_relief(Gtk.ReliefStyle.NONE)
                 button.connect("clicked", self.on_button_click, key_event)
 
                 if key_label == "Space": width=12
@@ -285,11 +293,19 @@ class VirtualKeyboard(Gtk.Window):
 
                 grid.attach(button, col, row_index, width, 1)
                 col += width  # Skip 4 columns for the space button
+                if key_event in self.modifiers:
+                    self.modifier_buttons[key_event] = button
 
     def on_button_click(self, widget, key_event):
         # If the key event is one of the modifiers, update its state and return.
         if key_event in self.modifiers:
             self.modifiers[key_event] = not self.modifiers[key_event]
+            if self.modifiers[key_event]:
+                widget.set_relief(Gtk.ReliefStyle.NORMAL)
+                widget.get_style_context().add_class("active-modifier")
+            else:
+                widget.set_relief(Gtk.ReliefStyle.NONE)
+                widget.get_style_context().remove_class("active-modifier")
             return
         # For a normal key, press any active modifiers.
         for mod_key, active in self.modifiers.items():
@@ -306,6 +322,8 @@ class VirtualKeyboard(Gtk.Window):
             if active:
                 self.device.emit(mod_key, 0)
                 self.modifiers[mod_key] = False
+                self.modifier_buttons[mod_key].set_relief(Gtk.ReliefStyle.NONE)
+                self.modifier_buttons[mod_key].get_style_context().remove_class("active-modifier")
 
 
     def read_settings(self):
