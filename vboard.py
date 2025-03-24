@@ -246,6 +246,10 @@ class VirtualKeyboard(Gtk.Window):
             padding: 5px;
         }}
 
+        #grid button {{
+            min-width: 10px;
+            padding: 1px;
+        }}
 
         """
 
