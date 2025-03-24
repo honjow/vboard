@@ -51,6 +51,27 @@ class VirtualKeyboard(Gtk.Window):
         self.text_color="white"
         self.read_settings()
 
+        # Dictionary for shifted characters
+        self.shift_map = {
+            "`": "~", "1": "!", "2": "@", "3": "#", "4": "$", "5": "%", 
+            "6": "^", "7": "&", "8": "*", "9": "(", "0": ")", "-": "_", "=": "+",
+            "[": "{", "]": "}", "\\": "|", ";": ":", "'": "\"", ",": "<", ".": ">", "/": "?",
+            # 
+            "a": "A", "b": "B", "c": "C", "d": "D", "e": "E", "f": "F", "g": "G",
+            "h": "H", "i": "I", "j": "J", "k": "K", "l": "L", "m": "M", "n": "N",
+            "o": "O", "p": "P", "q": "Q", "r": "R", "s": "S", "t": "T", "u": "U",
+            "v": "V", "w": "W", "x": "X", "y": "Y", "z": "Z",
+            # 
+            "A": "A", "B": "B", "C": "C", "D": "D", "E": "E", "F": "F", "G": "G",
+            "H": "H", "I": "I", "J": "J", "K": "K", "L": "L", "M": "M", "N": "N",
+            "O": "O", "P": "P", "Q": "Q", "R": "R", "S": "S", "T": "T", "U": "U",
+            "V": "V", "W": "W", "X": "X", "Y": "Y", "Z": "Z"
+        }
+        # Dictionary to store original button labels
+        self.original_labels = {}
+        # Dictionary to store button widgets for all keys (not just modifiers)
+        self.all_buttons = {}
+
         self.modifiers = {
             uinput.KEY_LEFTSHIFT: False,
             uinput.KEY_RIGHTSHIFT: False,
@@ -295,6 +316,8 @@ class VirtualKeyboard(Gtk.Window):
                 col += width  # Skip 4 columns for the space button
                 if key_event in self.modifiers:
                     self.modifier_buttons[key_event] = button
+                self.all_buttons[key_event] = button
+                self.original_labels[key_event] = key_label
 
     def on_button_click(self, widget, key_event):
         # If the key event is one of the modifiers, update its state and return.
@@ -306,24 +329,56 @@ class VirtualKeyboard(Gtk.Window):
             else:
                 widget.set_relief(Gtk.ReliefStyle.NONE)
                 widget.get_style_context().remove_class("active-modifier")
+            
+            # Update key labels when Shift is pressed or released
+            if key_event == uinput.KEY_LEFTSHIFT or key_event == uinput.KEY_RIGHTSHIFT:
+                self.update_key_labels()
+            
             return
-        # For a normal key, press any active modifiers.
+
+        # Record which modifier keys are active, then send them
+        active_modifiers = []
         for mod_key, active in self.modifiers.items():
             if active:
-                self.device.emit(mod_key, 1)
+                active_modifiers.append(mod_key)
+                self.device.emit(mod_key, 1)  # Press the modifier key
 
-        # Emit the normal key press.
-        self.device.emit(key_event, 1)
+        # Send the normal key press event
+        self.device.emit(key_event, 1)  # Press the target key
         time.sleep(0.05)
-        self.device.emit(key_event, 0)
+        self.device.emit(key_event, 0)  # Release the target key
 
-        # Release the modifiers that were active.
-        for mod_key, active in self.modifiers.items():
-            if active:
-                self.device.emit(mod_key, 0)
-                self.modifiers[mod_key] = False
-                self.modifier_buttons[mod_key].set_relief(Gtk.ReliefStyle.NONE)
-                self.modifier_buttons[mod_key].get_style_context().remove_class("active-modifier")
+        # Release all previously pressed modifier keys
+        for mod_key in active_modifiers:
+            self.device.emit(mod_key, 0)  # Release the modifier key
+            self.modifiers[mod_key] = False  # Reset modifier key state
+            self.modifier_buttons[mod_key].set_relief(Gtk.ReliefStyle.NONE)
+            self.modifier_buttons[mod_key].get_style_context().remove_class("active-modifier")
+        
+        # Update keyboard labels
+        if any(mod == uinput.KEY_LEFTSHIFT or mod == uinput.KEY_RIGHTSHIFT for mod in self.modifiers):
+            self.update_key_labels()
+
+
+    def update_key_labels(self):
+        """Update key labels based on modifier states"""
+        shift_active = self.modifiers[uinput.KEY_LEFTSHIFT] or self.modifiers[uinput.KEY_RIGHTSHIFT]
+        
+        # Go through all keys and update their labels
+        for key_code, button in self.all_buttons.items():
+            if key_code in self.original_labels:
+                original_label = self.original_labels[key_code]
+                
+                # Skip modifier keys and keys that don't have shift variants
+                if key_code in self.modifiers or original_label not in self.shift_map:
+                    continue
+                    
+                if shift_active:
+                    # Show shifted character
+                    button.set_label(self.shift_map[original_label])
+                else:
+                    # Show original character
+                    button.set_label(original_label)
 
 
     def read_settings(self):
