@@ -128,6 +128,13 @@ class VirtualKeyboard(Gtk.Window):
         self.color_combobox = Gtk.ComboBoxText()
         # Set the header bar as the titlebar of the window
         self.set_titlebar(self.header)
+        
+        # 添加ESC按钮到顶栏左侧
+        self.esc_button = Gtk.Button(label="ESC")
+        self.esc_button.connect("clicked", lambda widget: self.on_button_click(widget, uinput.KEY_ESC))
+        self.esc_button.set_name("esc-button")
+        self.header.pack_start(self.esc_button)
+        
         self.create_settings()
 
         grid = Gtk.Grid()  # Use Grid for layout
@@ -240,6 +247,7 @@ class VirtualKeyboard(Gtk.Window):
 
         headerbar button label{{
             color: {self.text_color};
+            text-shadow: 1px 1px 1px rgba(0,0,0,0.5);
         }}
 
         #toplevel {{
@@ -283,6 +291,14 @@ class VirtualKeyboard(Gtk.Window):
             border: 1px solid rgb(173, 216, 230);
         }}
 
+        #esc-button {{
+            border: 1px solid rgb(85, 85, 85);
+        }}
+        
+        #esc-button:hover {{
+            border: 1px solid rgb(173, 216, 230);
+        }}
+
        """
         try:
             provider.load_from_data(css.encode("utf-8"))
@@ -312,6 +328,7 @@ class VirtualKeyboard(Gtk.Window):
                 elif key_label == "Shift_L" : width=4
                 elif key_label == "Backspace": width=5
                 elif key_label == "`": width=1
+                elif key_label == "Esc": width=2
                 elif key_label == "\\" : width=4
                 elif key_label == "Enter": width=5
                 else: width=2
