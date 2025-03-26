@@ -51,6 +51,13 @@ class VirtualKeyboard(Gtk.Window):
         self.set_accept_focus(False)
         self.width=0
         self.height=0
+        self.pos_x=0
+        self.pos_y=0
+        self.config_pos_x=0  # 保存配置文件中的原始位置
+        self.config_pos_y=0  # 保存配置文件中的原始位置
+
+        # 设置窗口位置为无固定位置，避免窗口管理器干预
+        self.set_position(Gtk.WindowPosition.NONE)
 
         self.CONFIG_DIR = os.path.expanduser("~/.config/vboard")
         self.CONFIG_FILE = os.path.join(self.CONFIG_DIR, "settings.conf")
@@ -121,7 +128,7 @@ class VirtualKeyboard(Gtk.Window):
         ]
         if (self.width!=0):
             self.set_default_size(self.width, self.height)
-
+            
         self.header = Gtk.HeaderBar()
         self.header.set_show_close_button(True)
         self.buttons=[]
@@ -177,9 +184,12 @@ class VirtualKeyboard(Gtk.Window):
             self.color_combobox.append_text(label)
 
     def on_resize(self, widget, event):
-        self.width, self.height = self.get_size()  # Get the current size after resize
-
-
+        # 保存窗口大小和位置
+        self.width, self.height = self.get_size()
+        # 每次窗口移动时保存当前有效位置
+        x, y = self.get_position()
+        if x > 0 and y > 0:
+            self.pos_x, self.pos_y = x, y
 
     def create_button(self, label_="", callback=None, callback2=None, callbacks=0):
         button= Gtk.Button(label=label_)
@@ -443,9 +453,21 @@ class VirtualKeyboard(Gtk.Window):
                 self.bg_color = self.config.get("DEFAULT", "bg_color" )
                 self.opacity = self.config.get("DEFAULT", "opacity" )
                 self.text_color = self.config.get("DEFAULT", "text_color", fallback="white" )
-                self.width=self.config.getint("DEFAULT", "width" , fallback=0)
-                self.height=self.config.getint("DEFAULT", "height", fallback=0)
-                print(f"rgba: {self.bg_color}, {self.opacity}")
+                self.width = self.config.getint("DEFAULT", "width", fallback=0)
+                self.height = self.config.getint("DEFAULT", "height", fallback=0)
+                
+                # 读取窗口位置
+                pos_x_str = self.config.get("DEFAULT", "pos_x", fallback="0")
+                pos_y_str = self.config.get("DEFAULT", "pos_y", fallback="0")
+                try:
+                    self.pos_x = int(pos_x_str)
+                    self.pos_y = int(pos_y_str)
+                    # 保存原始配置文件中的位置
+                    self.config_pos_x = self.pos_x
+                    self.config_pos_y = self.pos_y
+                except ValueError:
+                    self.pos_x = self.config_pos_x = 0
+                    self.pos_y = self.config_pos_y = 0
 
         except configparser.Error as e:
             print(f"Warning: Could not read config file ({e}). Using default values.")
@@ -453,21 +475,35 @@ class VirtualKeyboard(Gtk.Window):
 
 
     def save_settings(self):
-
-        self.config["DEFAULT"] = {"bg_color": self.bg_color, "opacity": self.opacity, "text_color": self.text_color, "width": self.width, "height": self.height}
+        self.config["DEFAULT"] = {
+            "bg_color": self.bg_color, 
+            "opacity": self.opacity, 
+            "text_color": self.text_color, 
+            "width": self.width, 
+            "height": self.height,
+            "pos_x": str(self.pos_x),
+            "pos_y": str(self.pos_y)
+        }
 
         try:
             with open(self.CONFIG_FILE, "w") as configfile:
                 self.config.write(configfile)
+                print(f"保存设置：位置({self.pos_x}, {self.pos_y}), 大小({self.width}, {self.height})")
 
         except (configparser.Error, IOError) as e:
             print(f"Warning: Could not write to config file ({e}). Changes will not be saved.")
 
 if __name__ == "__main__":
     win = VirtualKeyboard()
+    win.connect("delete-event", lambda w, e: win.save_settings() or False)
     win.connect("destroy", Gtk.main_quit)
-    win.connect("destroy", lambda w: win.save_settings())
-    win.show_all()
     win.connect("configure-event", win.on_resize)
+    
+    # 在显示窗口前先设置位置
+    if win.config_pos_x > 0 and win.config_pos_y > 0:
+        print(f"Setting initial window position: {win.config_pos_x}, {win.config_pos_y}")
+        win.move(win.config_pos_x, win.config_pos_y)
+    
+    win.show_all()
     win.change_visibility()
     Gtk.main()
