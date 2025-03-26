@@ -10,6 +10,16 @@ gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk
 from gi.repository import GLib
 
+# 获取当前桌面环境
+def get_desktop_environment():
+    # 从环境变量中获取桌面环境
+    desktop_env = os.environ.get('XDG_CURRENT_DESKTOP', '')
+    if desktop_env:
+        return desktop_env.upper()
+    return ""
+
+# 桌面环境
+DESKTOP_ENV = get_desktop_environment()
 
 key_mapping = {uinput.KEY_ESC: "Esc", uinput.KEY_1: "1", uinput.KEY_2: "2", uinput.KEY_3: "3", uinput.KEY_4: "4", uinput.KEY_5: "5", uinput.KEY_6: "6",
     uinput.KEY_7: "7", uinput.KEY_8: "8", uinput.KEY_9: "9", uinput.KEY_0: "0", uinput.KEY_MINUS: "-", uinput.KEY_EQUAL: "=",
@@ -136,7 +146,7 @@ class VirtualKeyboard(Gtk.Window):
             ["Tab", "Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P", "[", "]", "\\"],
             ["CapsLock", "A", "S", "D", "F", "G", "H", "J", "K", "L", ";", "'", "Enter"],
             ["Shift_L", "Z", "X", "C", "V", "B", "N", "M", ",", ".", "/", "Shift_R", "↑"],
-            ["Ctrl_L","Super_L", "Alt_L", "Space", "Alt_R", "Super_R", "Ctrl_R", "←", "→", "↓"]
+            ["Ctrl_L","Super_L", "Alt_L", "Space", "Alt_R", "Super_R", "Ctrl_R", "←", "↓", "→"]
         ]
 
         # Create each row and add it to the grid
@@ -207,49 +217,43 @@ class VirtualKeyboard(Gtk.Window):
     def apply_css (self):
         provider = Gtk.CssProvider()
 
+        # 根据桌面环境决定是否添加background-image: none;
+        gnome_specific = ""
+        if "GNOME" in DESKTOP_ENV:
+            gnome_specific = "background-image: none;"
 
         css = f"""
         headerbar {{
             background-color: rgba({self.bg_color}, {self.opacity});
-
-
+            min-height: 40px;
+            padding: 2px 4px;
         }}
 
         headerbar button{{
-            min-width: 60px;
+            min-width: 40px;
             padding: 0px;
-            border: 0px
-
-
+            margin: 0px;
+            border: 0px;
+            background-color: transparent;
+            {gnome_specific}
         }}
 
         headerbar button label{{
-        color: {self.text_color};
-
+            color: {self.text_color};
         }}
-
 
         #toplevel {{
             background-color: rgba({self.bg_color}, {self.opacity});
-
-
-
-
         }}
 
         #grid button label{{
             color: {self.text_color};
-
-
         }}
-
-
 
         button {{
             background-color: transparent;
             border: 1px solid rgb(85, 85, 85);
             color:white;
-
         }}
 
         button:hover {{
@@ -263,7 +267,6 @@ class VirtualKeyboard(Gtk.Window):
         }}
 
        #combobox button.combo  {{
-
             color: {self.text_color};
             padding: 5px;
         }}
@@ -271,6 +274,7 @@ class VirtualKeyboard(Gtk.Window):
         #grid button {{
             min-width: 10px;
             padding: 1px;
+            margin: 1px;
             background-color: transparent;
         }}
 
@@ -304,7 +308,7 @@ class VirtualKeyboard(Gtk.Window):
 
                 if key_label == "Space": width=12
                 elif key_label == "CapsLock": width=3
-                elif key_label == "Shift_R" : width=4
+                elif key_label == "Shift_R" : width=2
                 elif key_label == "Shift_L" : width=4
                 elif key_label == "Backspace": width=5
                 elif key_label == "`": width=1
@@ -436,7 +440,6 @@ class VirtualKeyboard(Gtk.Window):
 
         except (configparser.Error, IOError) as e:
             print(f"Warning: Could not write to config file ({e}). Changes will not be saved.")
-
 
 if __name__ == "__main__":
     win = VirtualKeyboard()
