@@ -129,12 +129,6 @@ class VirtualKeyboard(Gtk.Window):
         # Set the header bar as the titlebar of the window
         self.set_titlebar(self.header)
         
-        # 添加ESC按钮到顶栏左侧
-        self.esc_button = Gtk.Button(label="ESC")
-        self.esc_button.connect("clicked", lambda widget: self.on_button_click(widget, uinput.KEY_ESC))
-        self.esc_button.set_name("esc-button")
-        self.header.pack_start(self.esc_button)
-        
         self.create_settings()
 
         grid = Gtk.Grid()  # Use Grid for layout
@@ -162,16 +156,22 @@ class VirtualKeyboard(Gtk.Window):
 
 
     def create_settings(self):
+        # 添加ESC按钮到顶栏左侧
+        self.esc_button = Gtk.Button(label="ESC")
+        self.esc_button.connect("clicked", lambda widget: self.on_button_click(widget, uinput.KEY_ESC))
+        self.esc_button.set_name("esc-button")
+        self.header.pack_start(self.esc_button)
+        
+        # 添加右侧控制按钮
         self.create_button("☰", self.change_visibility,callbacks=1)
         self.create_button("+", self.change_opacity,True,2)
         self.create_button("-", self.change_opacity, False,2)
-        self.create_button( f"{self.opacity}")
+        self.create_button(f"{self.opacity}")
         self.color_combobox.append_text("Change Background")
         self.color_combobox.set_active(0)
         self.color_combobox.connect("changed", self.change_color)
         self.color_combobox.set_name("combobox")
-        self.header.add(self.color_combobox)
-
+        self.header.pack_end(self.color_combobox)
 
         for label, color in self.colors:
             self.color_combobox.append_text(label)
@@ -192,12 +192,15 @@ class VirtualKeyboard(Gtk.Window):
             self.opacity_btn=button
             self.opacity_btn.set_tooltip_text("opacity")
 
-        self.header.add(button)
+        button.get_style_context().add_class("header-button")
+        self.header.pack_end(button)
         self.buttons.append(button)
+        return button
 
     def change_visibility(self, widget=None):
         for button in self.buttons:
-            if button.get_label()!="☰":
+            # 跳过ESC按钮和菜单按钮
+            if button.get_label()!="☰" and button.get_name()!="esc-button":
                 button.set_visible(not button.get_visible())
         self.color_combobox.set_visible(not self.color_combobox.get_visible() )
 
@@ -247,7 +250,6 @@ class VirtualKeyboard(Gtk.Window):
 
         headerbar button label{{
             color: {self.text_color};
-            text-shadow: 1px 1px 1px rgba(0,0,0,0.5);
         }}
 
         #toplevel {{
@@ -265,6 +267,7 @@ class VirtualKeyboard(Gtk.Window):
         }}
 
         button:hover {{
+            background-color: transparent;
             border: 1px solid rgb(173, 216, 230);
         }}
 
@@ -289,9 +292,11 @@ class VirtualKeyboard(Gtk.Window):
         button.active-modifier {{
             background-color: rgba(100, 100, 255, 0.5);
             border: 1px solid rgb(173, 216, 230);
+            {gnome_specific}
         }}
 
         #esc-button {{
+            min-width: 60px;
             border: 1px solid rgb(85, 85, 85);
         }}
         
